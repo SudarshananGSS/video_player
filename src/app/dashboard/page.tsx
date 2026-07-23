@@ -13,15 +13,14 @@ export default async function DashboardPage() {
 
   const { data: media } = await supabase
     .from("media")
-    .select("id, type, title, storage_path, status, created_at")
+    .select("id, type, title, storage_path, thumbnail_path, status, created_at")
     .order("created_at", { ascending: false });
 
   const withPreviewUrls = await Promise.all(
     (media ?? []).map(async (item) => {
-      if (item.type !== "image") return { ...item, previewUrl: null as string | null };
-      const { data } = await supabase.storage
-        .from("media")
-        .createSignedUrl(item.storage_path, 60 * 60);
+      const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
+      if (!previewPath) return { ...item, previewUrl: null as string | null };
+      const { data } = await supabase.storage.from("media").createSignedUrl(previewPath, 60 * 60);
       return { ...item, previewUrl: data?.signedUrl ?? null };
     }),
   );

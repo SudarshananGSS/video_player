@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { generateVideoThumbnail } from "@/lib/video-thumbnail";
 
 export function UploadForm({ ownerId }: { ownerId: string }) {
   const router = useRouter();
@@ -33,12 +34,30 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
       return;
     }
 
+    let thumbnailPath: string | null = null;
+
+    if (type === "video") {
+      setStatus("Generating thumbnail...");
+      try {
+        const thumbnailBlob = await generateVideoThumbnail(file);
+        const thumbPath = `${ownerId}/${mediaId}/thumbnail.jpg`;
+        const { error: thumbnailError } = await supabase.storage
+          .from("media")
+          .upload(thumbPath, thumbnailBlob, { contentType: "image/jpeg" });
+        if (!thumbnailError) thumbnailPath = thumbPath;
+      } catch {
+        // Thumbnail is best-effort; the video itself already uploaded fine.
+      }
+      setStatus("Uploading...");
+    }
+
     const { error: insertError } = await supabase.from("media").insert({
       id: mediaId,
       owner_id: ownerId,
       type,
       title: file.name,
       storage_path: path,
+      thumbnail_path: thumbnailPath,
       mime_type: file.type,
       size_bytes: file.size,
       status: "ready",

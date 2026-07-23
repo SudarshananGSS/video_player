@@ -10,7 +10,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   unknown: "Something went wrong loading this file.",
 };
 
-type Media = { type: "video" | "image"; title: string | null; url: string };
+type Media = { type: "video" | "image"; title: string | null; url: string; posterUrl: string | null };
 
 export function WatchClient({ token }: { token: string }) {
   const [media, setMedia] = useState<Media | null>(null);
@@ -88,6 +88,7 @@ export function WatchClient({ token }: { token: string }) {
     return (
       <video
         src={media.url}
+        poster={media.posterUrl ?? undefined}
         controls
         autoPlay
         className="max-h-[85vh] w-full max-w-4xl rounded-lg"

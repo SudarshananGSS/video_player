@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type ResolveResult =
-  | { ok: true; type: "video" | "image"; title: string | null; url: string }
+  | { ok: true; type: "video" | "image"; title: string | null; url: string; posterUrl: string | null }
   | { ok: false; error: "not_found" | "expired" | "max_views_reached" | "password_required" | "unknown" };
 
 export async function resolveShareLink(token: string, password?: string): Promise<ResolveResult> {
@@ -20,7 +20,12 @@ export async function resolveShareLink(token: string, password?: string): Promis
     return { ok: false, error: (known.find((k) => message.includes(k)) as never) ?? "unknown" };
   }
 
-  const media = data as { type: "video" | "image"; title: string | null; storage_path: string };
+  const media = data as {
+    type: "video" | "image";
+    title: string | null;
+    storage_path: string;
+    thumbnail_path: string | null;
+  };
 
   const admin = createAdminClient();
   const { data: signed, error: signError } = await admin.storage
@@ -31,5 +36,13 @@ export async function resolveShareLink(token: string, password?: string): Promis
     return { ok: false, error: "unknown" };
   }
 
-  return { ok: true, type: media.type, title: media.title, url: signed.signedUrl };
+  let posterUrl: string | null = null;
+  if (media.thumbnail_path) {
+    const { data: signedPoster } = await admin.storage
+      .from("media")
+      .createSignedUrl(media.thumbnail_path, 60 * 60);
+    posterUrl = signedPoster?.signedUrl ?? null;
+  }
+
+  return { ok: true, type: media.type, title: media.title, url: signed.signedUrl, posterUrl };
 }
