@@ -33,6 +33,28 @@ export function MediaList({ items }: { items: Item[] }) {
     if (result.token) {
       const url = `${window.location.origin}/watch/${result.token}`;
       setShareUrls((prev) => ({ ...prev, [key]: url }));
+      return url;
+    }
+    return null;
+  }
+
+  async function handleOpenVideo(item: Item) {
+    if (item.status !== "ready") return;
+    const key = shareKey(item.id, "original");
+    const existing = shareUrls[key];
+    if (existing) {
+      window.open(existing, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Open the tab synchronously (within the click's user-gesture context) and
+    // redirect it once the link is ready — window.open after an await gets
+    // blocked by popup blockers since the gesture context is gone by then.
+    const newTab = window.open("", "_blank");
+    const url = await handleShare(item.id, "original");
+    if (newTab) {
+      if (url) newTab.location.href = url;
+      else newTab.close();
     }
   }
 
@@ -63,7 +85,12 @@ export function MediaList({ items }: { items: Item[] }) {
         const notReady = item.status !== "ready";
         return (
           <li key={item.id} className="overflow-hidden rounded-xl border border-neutral-200">
-            <div className="relative aspect-video bg-neutral-100">
+            <button
+              type="button"
+              onClick={() => handleOpenVideo(item)}
+              disabled={notReady}
+              className={`group relative block aspect-video w-full bg-neutral-100 ${notReady ? "cursor-not-allowed" : "cursor-pointer"}`}
+            >
               {item.previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.previewUrl} alt={item.title ?? ""} className="h-full w-full object-cover" />
@@ -74,8 +101,8 @@ export function MediaList({ items }: { items: Item[] }) {
               )}
               {item.type === "video" && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
-                    <PlayIcon />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-transform group-hover:scale-105">
+                    {busyKey === shareKey(item.id, "original") ? <Spinner /> : <PlayIcon />}
                   </span>
                 </div>
               )}
@@ -87,7 +114,7 @@ export function MediaList({ items }: { items: Item[] }) {
                   {item.status}
                 </span>
               )}
-            </div>
+            </button>
 
             <div className="space-y-3 p-3">
               <p className="truncate text-sm font-medium" title={item.title ?? undefined}>
@@ -159,6 +186,15 @@ function ShareButton({
     >
       {busy ? "Sharing..." : label}
     </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="animate-spin">
+      <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2" opacity="0.3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 
