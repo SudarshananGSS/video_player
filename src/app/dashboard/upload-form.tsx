@@ -6,13 +6,21 @@ import { createClient } from "@/lib/supabase/client";
 import { generateVideoThumbnail } from "@/lib/video-thumbnail";
 
 type ThumbnailMode = "auto" | "custom" | "none";
+type StatusKind = "info" | "success" | "error";
+
+const THUMBNAIL_OPTIONS: { mode: ThumbnailMode; label: string; hint: string }[] = [
+  { mode: "auto", label: "Auto-generate", hint: "Grab a frame from the video" },
+  { mode: "custom", label: "Upload my own", hint: "Use a custom image" },
+  { mode: "none", label: "No thumbnail", hint: "Show a placeholder" },
+];
 
 export function UploadForm({ ownerId }: { ownerId: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; kind: StatusKind } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const [pendingVideo, setPendingVideo] = useState<File | null>(null);
   const [thumbnailMode, setThumbnailMode] = useState<ThumbnailMode>("auto");
@@ -54,14 +62,14 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
   async function handleImageUpload(file: File) {
     const supabase = createClient();
     setBusy(true);
-    setStatus("Uploading...");
+    setStatus({ text: `Uploading ${file.name}...`, kind: "info" });
 
     const mediaId = crypto.randomUUID();
     const path = `${ownerId}/${mediaId}/${file.name}`;
 
     const { error: uploadError } = await supabase.storage.from("media").upload(path, file);
     if (uploadError) {
-      setStatus(`Upload failed: ${uploadError.message}`);
+      setStatus({ text: `Upload failed: ${uploadError.message}`, kind: "error" });
       setBusy(false);
       return;
     }
@@ -78,31 +86,34 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
   async function handleVideoUpload() {
     if (!pendingVideo) return;
     if (thumbnailMode === "custom" && !customThumbnail) {
-      setStatus("Choose a thumbnail image, or switch to auto-generate.");
+      setStatus({ text: "Choose a thumbnail image, or switch to auto-generate.", kind: "error" });
       return;
     }
 
     const supabase = createClient();
     const file = pendingVideo;
     setBusy(true);
-    setStatus("Uploading video...");
+    setStatus({ text: "Uploading video...", kind: "info" });
 
     const mediaId = crypto.randomUUID();
     const path = `${ownerId}/${mediaId}/${file.name}`;
 
     const { error: uploadError } = await supabase.storage.from("media").upload(path, file);
     if (uploadError) {
-      setStatus(`Upload failed: ${uploadError.message}`);
+      setStatus({ text: `Upload failed: ${uploadError.message}`, kind: "error" });
       setBusy(false);
       return;
     }
 
     if (thumbnailMode !== "none") {
-      setStatus(thumbnailMode === "custom" ? "Uploading thumbnail..." : "Generating thumbnail...");
+      setStatus({
+        text: thumbnailMode === "custom" ? "Uploading thumbnail..." : "Generating thumbnail...",
+        kind: "info",
+      });
     }
     const thumbnailPath = await uploadThumbnail(supabase, mediaId, file);
 
-    setStatus("Saving...");
+    setStatus({ text: "Saving...", kind: "info" });
     await insertMediaRow(supabase, {
       mediaId,
       type: "video",
@@ -130,12 +141,12 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
     });
 
     if (insertError) {
-      setStatus(`Saved file but failed to record it: ${insertError.message}`);
+      setStatus({ text: `Saved file but failed to record it: ${insertError.message}`, kind: "error" });
       setBusy(false);
       return;
     }
 
-    setStatus("Done.");
+    setStatus({ text: `${opts.file.name} uploaded successfully.`, kind: "success" });
     setBusy(false);
     if (inputRef.current) inputRef.current.value = "";
     router.refresh();
@@ -153,72 +164,98 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
       handleImageUpload(file);
       return;
     }
-    setStatus("Only image and video files are supported.");
+    setStatus({ text: "Only image and video files are supported.", kind: "error" });
   }
 
-  const isError = status?.toLowerCase().includes("fail") || status?.toLowerCase().includes("choose");
-
   return (
-    <div className="mb-8 rounded-lg border border-dashed border-neutral-300 p-6 text-center transition-colors hover:border-neutral-400">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="video/*,image/*"
-        disabled={busy}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
+    <div className="mb-8">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!busy) setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragActive(false);
+          if (busy) return;
+          const file = e.dataTransfer.files?.[0];
           if (file) handleFileSelect(file);
         }}
-        className="text-sm"
-      />
-      <p className="mt-1 text-xs text-neutral-400">Videos and images, up to 50MB.</p>
+        className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
+          dragActive ? "border-neutral-900 bg-neutral-50" : "border-neutral-300 hover:border-neutral-400"
+        } ${busy ? "pointer-events-none opacity-60" : ""}`}
+      >
+        <label htmlFor="file-upload" className="flex cursor-pointer flex-col items-center gap-2">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+            <UploadIcon />
+          </span>
+          <span className="text-sm font-medium">
+            Click to upload <span className="font-normal text-neutral-400">or drag and drop</span>
+          </span>
+          <span className="text-xs text-neutral-400">Video or image, up to 50MB</span>
+        </label>
+        <input
+          id="file-upload"
+          ref={inputRef}
+          type="file"
+          accept="video/*,image/*"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileSelect(file);
+          }}
+          className="sr-only"
+        />
+      </div>
 
       {pendingVideo && (
-        <div className="mt-4 space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-left">
-          <p className="text-sm font-medium">{pendingVideo.name}</p>
+        <div className="mt-3 space-y-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-left">
+          <p className="truncate text-sm font-medium" title={pendingVideo.name}>
+            {pendingVideo.name}
+          </p>
 
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-neutral-500">Thumbnail</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="thumbnailMode"
-                checked={thumbnailMode === "auto"}
-                onChange={() => setThumbnailMode("auto")}
-                disabled={busy}
-              />
-              Auto-generate from video
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="thumbnailMode"
-                checked={thumbnailMode === "custom"}
-                onChange={() => setThumbnailMode("custom")}
-                disabled={busy}
-              />
-              Upload my own image
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="thumbnailMode"
-                checked={thumbnailMode === "none"}
-                onChange={() => setThumbnailMode("none")}
-                disabled={busy}
-              />
-              No thumbnail
-            </label>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Thumbnail
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {THUMBNAIL_OPTIONS.map((option) => (
+                <button
+                  key={option.mode}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setThumbnailMode(option.mode)}
+                  className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:opacity-50 ${
+                    thumbnailMode === option.mode
+                      ? "border-neutral-900 bg-white ring-1 ring-neutral-900"
+                      : "border-neutral-200 bg-white hover:border-neutral-300"
+                  }`}
+                >
+                  <span className="block font-medium">{option.label}</span>
+                  <span className="block text-neutral-400">{option.hint}</span>
+                </button>
+              ))}
+            </div>
 
             {thumbnailMode === "custom" && (
-              <input
-                ref={thumbnailInputRef}
-                type="file"
-                accept="image/*"
-                disabled={busy}
-                onChange={(e) => setCustomThumbnail(e.target.files?.[0] ?? null)}
-                className="text-sm"
-              />
+              <div className="mt-3">
+                <label
+                  htmlFor="thumbnail-upload"
+                  className="inline-block cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                >
+                  {customThumbnail ? customThumbnail.name : "Choose image"}
+                </label>
+                <input
+                  id="thumbnail-upload"
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  disabled={busy}
+                  onChange={(e) => setCustomThumbnail(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+              </div>
             )}
           </div>
 
@@ -226,14 +263,14 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
             <button
               onClick={handleVideoUpload}
               disabled={busy}
-              className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+              className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
             >
-              Upload video
+              {busy ? "Uploading..." : "Upload video"}
             </button>
             <button
               onClick={resetPendingVideo}
               disabled={busy}
-              className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -242,8 +279,54 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
       )}
 
       {status && (
-        <p className={`mt-2 text-sm ${isError ? "text-red-600" : "text-neutral-500"}`}>{status}</p>
+        <div
+          className={`mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+            status.kind === "error"
+              ? "bg-red-50 text-red-700"
+              : status.kind === "success"
+                ? "bg-green-50 text-green-700"
+                : "bg-neutral-100 text-neutral-600"
+          }`}
+        >
+          {status.kind === "error" ? <ErrorIcon /> : status.kind === "success" ? <CheckIcon /> : <Spinner />}
+          <span>{status.text}</span>
+        </div>
       )}
     </div>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+      <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v5M12 16h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 animate-spin">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }

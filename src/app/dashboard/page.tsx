@@ -27,7 +27,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex items-center justify-between border-b border-neutral-200 pb-6">
         <div>
           <h1 className="text-2xl font-semibold">Your library</h1>
           <p className="text-sm text-neutral-500">{user?.email}</p>
@@ -37,15 +37,20 @@ export default async function DashboardPage() {
         </form>
       </div>
 
+      <h2 className="mb-3 text-sm font-semibold text-neutral-700">Upload</h2>
       <UploadForm ownerId={user!.id} />
 
+      <h2 className="mb-3 text-sm font-semibold text-neutral-700">
+        Media {withPreviewUrls.length > 0 && <span className="text-neutral-400">({withPreviewUrls.length})</span>}
+      </h2>
       <MediaList items={withPreviewUrls} />
 
       <p className="mt-8 text-xs text-neutral-400">
-        Public share links use{" "}
+        Sharing a video or image generates a public link at{" "}
         <Link href="/watch" className="underline">
           /watch/[token]
-        </Link>
+        </Link>{" "}
+        that plays without requiring the viewer to log in.
       </p>
     </div>
   );
