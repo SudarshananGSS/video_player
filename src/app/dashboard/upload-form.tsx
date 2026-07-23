@@ -75,8 +75,10 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
     router.refresh();
   }
 
+  const isError = status?.toLowerCase().includes("fail");
+
   return (
-    <div className="mb-8 rounded-lg border border-dashed border-neutral-300 p-6 text-center">
+    <div className="mb-8 rounded-lg border border-dashed border-neutral-300 p-6 text-center transition-colors hover:border-neutral-400">
       <input
         ref={inputRef}
         type="file"
@@ -88,7 +90,10 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
         }}
         className="text-sm"
       />
-      {status && <p className="mt-2 text-sm text-neutral-500">{status}</p>}
+      <p className="mt-1 text-xs text-neutral-400">Videos and images, up to 50MB.</p>
+      {status && (
+        <p className={`mt-2 text-sm ${isError ? "text-red-600" : "text-neutral-500"}`}>{status}</p>
+      )}
     </div>
   );
 }

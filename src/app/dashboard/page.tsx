@@ -26,14 +26,14 @@ export default async function DashboardPage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Your library</h1>
           <p className="text-sm text-neutral-500">{user?.email}</p>
         </div>
         <form action={logout}>
-          <button className="text-sm text-neutral-500 underline">Log out</button>
+          <button className="text-sm text-neutral-500 underline hover:text-neutral-700">Log out</button>
         </form>
       </div>
 
