@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { generateVideoThumbnail } from "@/lib/video-thumbnail";
 
@@ -25,6 +25,17 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
   const [pendingVideo, setPendingVideo] = useState<File | null>(null);
   const [thumbnailMode, setThumbnailMode] = useState<ThumbnailMode>("auto");
   const [customThumbnail, setCustomThumbnail] = useState<File | null>(null);
+
+  const customThumbnailPreview = useMemo(
+    () => (customThumbnail ? URL.createObjectURL(customThumbnail) : null),
+    [customThumbnail],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (customThumbnailPreview) URL.revokeObjectURL(customThumbnailPreview);
+    };
+  }, [customThumbnailPreview]);
 
   function resetPendingVideo() {
     setPendingVideo(null);
@@ -239,13 +250,28 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
             </div>
 
             {thumbnailMode === "custom" && (
-              <div className="mt-3">
-                <label
-                  htmlFor="thumbnail-upload"
-                  className="inline-block cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
-                >
-                  {customThumbnail ? customThumbnail.name : "Choose image"}
-                </label>
+              <div className="mt-3 flex items-center gap-3">
+                {customThumbnailPreview && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={customThumbnailPreview}
+                    alt="Thumbnail preview"
+                    className="h-14 w-24 shrink-0 rounded-md border border-neutral-200 object-cover"
+                  />
+                )}
+                <div className="min-w-0">
+                  <label
+                    htmlFor="thumbnail-upload"
+                    className="inline-block cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
+                  >
+                    {customThumbnail ? "Change image" : "Choose image"}
+                  </label>
+                  {customThumbnail && (
+                    <p className="mt-1 truncate text-xs text-neutral-400" title={customThumbnail.name}>
+                      {customThumbnail.name}
+                    </p>
+                  )}
+                </div>
                 <input
                   id="thumbnail-upload"
                   ref={thumbnailInputRef}
