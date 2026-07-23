@@ -72,6 +72,13 @@ export function MediaList({ items }: { items: Item[] }) {
                   {item.type}
                 </div>
               )}
+              {item.type === "video" && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+                    <PlayIcon />
+                  </span>
+                </div>
+              )}
               <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
                 {item.type}
               </span>
@@ -152,6 +159,14 @@ function ShareButton({
     >
       {busy ? "Sharing..." : label}
     </button>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="white" className="translate-x-[1px]">
+      <path d="M8 5v14l11-7z" />
+    </svg>
   );
 }
 
