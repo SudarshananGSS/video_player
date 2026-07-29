@@ -1,7 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createShareLink, deleteMedia } from "./actions";
+import { setWelcomeVideo } from "./advisor-actions";
 
 type Target = "original" | "thumbnail";
 
@@ -20,10 +22,24 @@ function shareKey(id: string, target: Target) {
   return `${id}:${target}`;
 }
 
-export function MediaList({ items }: { items: Item[] }) {
+export function MediaList({
+  items,
+  welcomeVideoMediaId,
+}: {
+  items: Item[];
+  welcomeVideoMediaId: string | null;
+}) {
+  const router = useRouter();
   const [shareUrls, setShareUrls] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  async function handleSetWelcomeVideo(id: string) {
+    setBusyKey(`welcome:${id}`);
+    await setWelcomeVideo(id);
+    setBusyKey(null);
+    router.refresh();
+  }
 
   async function handleShare(id: string, target: Target) {
     const key = shareKey(id, target);
@@ -117,9 +133,16 @@ export function MediaList({ items }: { items: Item[] }) {
             </button>
 
             <div className="space-y-3 p-3">
-              <p className="truncate text-sm font-medium" title={item.title ?? undefined}>
-                {item.title}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-medium" title={item.title ?? undefined}>
+                  {item.title}
+                </p>
+                {item.type === "video" && item.id === welcomeVideoMediaId && (
+                  <span className="shrink-0 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Welcome video
+                  </span>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-2">
                 <ShareButton
@@ -134,6 +157,15 @@ export function MediaList({ items }: { items: Item[] }) {
                     disabled={notReady}
                     busy={busyKey === shareKey(item.id, "thumbnail")}
                     onClick={() => handleShare(item.id, "thumbnail")}
+                  />
+                )}
+                {item.type === "video" && item.id !== welcomeVideoMediaId && (
+                  <ShareButton
+                    label="Set as welcome video"
+                    busyLabel="Setting..."
+                    disabled={notReady}
+                    busy={busyKey === `welcome:${item.id}`}
+                    onClick={() => handleSetWelcomeVideo(item.id)}
                   />
                 )}
                 <button
@@ -169,11 +201,13 @@ export function MediaList({ items }: { items: Item[] }) {
 
 function ShareButton({
   label,
+  busyLabel = "Sharing...",
   disabled,
   busy,
   onClick,
 }: {
   label: string;
+  busyLabel?: string;
   disabled: boolean;
   busy: boolean;
   onClick: () => void;
@@ -184,7 +218,7 @@ function ShareButton({
       onClick={onClick}
       className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-neutral-50 disabled:opacity-50"
     >
-      {busy ? "Sharing..." : label}
+      {busy ? busyLabel : label}
     </button>
   );
 }

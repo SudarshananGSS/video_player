@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { resolveShareLink } from "./actions";
+import { MediaPlayer } from "@/components/media-player";
 
 const ERROR_MESSAGES: Record<string, string> = {
   not_found: "This link doesn't exist or the file is no longer available.",
@@ -84,18 +85,5 @@ export function WatchClient({ token }: { token: string }) {
 
   if (!media) return null;
 
-  if (media.type === "video") {
-    return (
-      <video
-        src={media.url}
-        poster={media.posterUrl ?? undefined}
-        controls
-        autoPlay
-        className="max-h-[85vh] w-full max-w-4xl rounded-lg"
-      />
-    );
-  }
-
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={media.url} alt={media.title ?? ""} className="max-h-[85vh] w-full max-w-4xl rounded-lg object-contain" />;
+  return <MediaPlayer type={media.type} url={media.url} posterUrl={media.posterUrl} title={media.title} />;
 }

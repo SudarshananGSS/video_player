@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/login/actions";
 import { UploadForm } from "./upload-form";
 import { MediaList } from "./media-list";
+import { AdvisorSetup } from "./advisor-setup";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -10,6 +11,12 @@ export default async function DashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const { data: advisorProfile } = await supabase
+    .from("advisor_profiles")
+    .select("ar_number, welcome_video_media_id")
+    .eq("user_id", user!.id)
+    .maybeSingle();
 
   const { data: media } = await supabase
     .from("media")
@@ -37,13 +44,15 @@ export default async function DashboardPage() {
         </form>
       </div>
 
+      <AdvisorSetup arNumber={advisorProfile?.ar_number ?? null} />
+
       <h2 className="mb-3 text-sm font-semibold text-neutral-700">Upload</h2>
       <UploadForm ownerId={user!.id} />
 
       <h2 className="mb-3 text-sm font-semibold text-neutral-700">
         Media {withPreviewUrls.length > 0 && <span className="text-neutral-400">({withPreviewUrls.length})</span>}
       </h2>
-      <MediaList items={withPreviewUrls} />
+      <MediaList items={withPreviewUrls} welcomeVideoMediaId={advisorProfile?.welcome_video_media_id ?? null} />
 
       <p className="mt-8 text-xs text-neutral-400">
         Sharing a video or image generates a public link at{" "}
