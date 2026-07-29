@@ -7,5 +7,11 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  redirect(user ? "/dashboard" : "/login");
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase.from("profiles").select("is_admin").eq("user_id", user.id).maybeSingle();
+
+  redirect(profile?.is_admin ? "/admin" : "/dashboard");
 }
