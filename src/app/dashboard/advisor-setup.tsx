@@ -1,21 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { setArNumber } from "./advisor-actions";
-
 export function AdvisorSetup({ arNumber }: { arNumber: string | null }) {
-  const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSave() {
-    setBusy(true);
-    setError(null);
-    const result = await setArNumber(value);
-    setBusy(false);
-    if (result.error) setError(result.error);
-  }
-
   if (arNumber) {
     const campaignUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/campaign/${arNumber}`;
     return (
@@ -37,28 +22,10 @@ export function AdvisorSetup({ arNumber }: { arNumber: string | null }) {
 
   return (
     <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <p className="text-sm font-medium text-amber-900">Enter your AR number</p>
+      <p className="text-sm font-medium text-amber-900">No AR number on file</p>
       <p className="mt-1 text-xs text-amber-700">
-        Your permanent campaign video link is generated automatically from it — nothing else to fill in.
+        Your campaign video link is generated from your AR number. Ask your admin to set it on your account.
       </p>
-      <div className="mt-3 flex gap-2">
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="e.g. 1234567"
-          inputMode="numeric"
-          disabled={busy}
-          className="w-40 rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
-        />
-        <button
-          onClick={handleSave}
-          disabled={busy || value.trim().length === 0}
-          className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {busy ? "Saving..." : "Save"}
-        </button>
-      </div>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

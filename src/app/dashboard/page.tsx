@@ -12,6 +12,12 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: ownProfile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("user_id", user!.id)
+    .maybeSingle();
+
   const { data: advisorProfile } = await supabase
     .from("advisor_profiles")
     .select("ar_number, campaign_video_media_id")
@@ -21,6 +27,7 @@ export default async function DashboardPage() {
   const { data: media } = await supabase
     .from("media")
     .select("id, type, title, storage_path, thumbnail_path, status, created_at")
+    .eq("owner_id", user!.id)
     .order("created_at", { ascending: false });
 
   const withPreviewUrls = await Promise.all(
@@ -39,9 +46,16 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold">Your library</h1>
           <p className="text-sm text-neutral-500">{user?.email}</p>
         </div>
-        <form action={logout}>
-          <button className="text-sm text-neutral-500 underline hover:text-neutral-700">Log out</button>
-        </form>
+        <div className="flex items-center gap-4">
+          {ownProfile?.is_admin && (
+            <Link href="/admin" className="text-sm text-neutral-500 underline hover:text-neutral-700">
+              Admin
+            </Link>
+          )}
+          <form action={logout}>
+            <button className="text-sm text-neutral-500 underline hover:text-neutral-700">Log out</button>
+          </form>
+        </div>
       </div>
 
       <AdvisorSetup arNumber={advisorProfile?.ar_number ?? null} />

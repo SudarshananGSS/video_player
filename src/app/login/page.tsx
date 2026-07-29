@@ -1,4 +1,4 @@
-import { login, signup } from "./actions";
+import { login } from "./actions";
 
 export default async function LoginPage({
   searchParams,
@@ -50,21 +50,17 @@ export default async function LoginPage({
               className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              formAction={login}
-              className="flex-1 rounded-md bg-black px-3 py-2 text-sm font-medium text-white"
-            >
-              Log in
-            </button>
-            <button
-              formAction={signup}
-              className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium"
-            >
-              Sign up
-            </button>
-          </div>
+          <button
+            formAction={login}
+            className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white"
+          >
+            Log in
+          </button>
         </form>
+
+        <p className="text-center text-xs text-neutral-400">
+          Advisor accounts are created by an admin invite, not self sign-up.
+        </p>
       </div>
     </div>
   );
