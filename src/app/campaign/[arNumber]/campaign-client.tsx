@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resolveWelcomeVideo } from "./actions";
+import { resolveCampaignVideo } from "./actions";
 import { MediaPlayer } from "@/components/media-player";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  not_found: "This advisor hasn't published a welcome video yet.",
+  not_found: "This advisor hasn't published a campaign video yet.",
   unknown: "Something went wrong loading this video.",
 };
 
 type Media = { type: "video" | "image"; title: string | null; url: string; posterUrl: string | null };
 
-export function WelcomeClient({ arNumber }: { arNumber: string }) {
+export function CampaignClient({ arNumber }: { arNumber: string }) {
   const [media, setMedia] = useState<Media | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    resolveWelcomeVideo(arNumber).then((result) => {
+    resolveCampaignVideo(arNumber).then((result) => {
       setChecking(false);
       if (result.ok) {
         setMedia(result);

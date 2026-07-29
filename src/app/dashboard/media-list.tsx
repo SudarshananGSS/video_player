@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createShareLink, deleteMedia } from "./actions";
-import { setWelcomeVideo } from "./advisor-actions";
+import { setCampaignVideo } from "./advisor-actions";
 
 type Target = "original" | "thumbnail";
 
@@ -24,19 +24,19 @@ function shareKey(id: string, target: Target) {
 
 export function MediaList({
   items,
-  welcomeVideoMediaId,
+  campaignVideoMediaId,
 }: {
   items: Item[];
-  welcomeVideoMediaId: string | null;
+  campaignVideoMediaId: string | null;
 }) {
   const router = useRouter();
   const [shareUrls, setShareUrls] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  async function handleSetWelcomeVideo(id: string) {
-    setBusyKey(`welcome:${id}`);
-    await setWelcomeVideo(id);
+  async function handleSetCampaignVideo(id: string) {
+    setBusyKey(`campaign:${id}`);
+    await setCampaignVideo(id);
     setBusyKey(null);
     router.refresh();
   }
@@ -137,9 +137,9 @@ export function MediaList({
                 <p className="truncate text-sm font-medium" title={item.title ?? undefined}>
                   {item.title}
                 </p>
-                {item.type === "video" && item.id === welcomeVideoMediaId && (
+                {item.type === "video" && item.id === campaignVideoMediaId && (
                   <span className="shrink-0 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                    Welcome video
+                    Campaign video
                   </span>
                 )}
               </div>
@@ -159,13 +159,13 @@ export function MediaList({
                     onClick={() => handleShare(item.id, "thumbnail")}
                   />
                 )}
-                {item.type === "video" && item.id !== welcomeVideoMediaId && (
+                {item.type === "video" && item.id !== campaignVideoMediaId && (
                   <ShareButton
-                    label="Set as welcome video"
+                    label="Set as campaign video"
                     busyLabel="Setting..."
                     disabled={notReady}
-                    busy={busyKey === `welcome:${item.id}`}
-                    onClick={() => handleSetWelcomeVideo(item.id)}
+                    busy={busyKey === `campaign:${item.id}`}
+                    onClick={() => handleSetCampaignVideo(item.id)}
                   />
                 )}
                 <button

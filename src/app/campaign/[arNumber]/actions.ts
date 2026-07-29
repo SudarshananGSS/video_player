@@ -7,10 +7,10 @@ type ResolveResult =
   | { ok: true; type: "video" | "image"; title: string | null; url: string; posterUrl: string | null }
   | { ok: false; error: "not_found" | "unknown" };
 
-export async function resolveWelcomeVideo(arNumber: string): Promise<ResolveResult> {
+export async function resolveCampaignVideo(arNumber: string): Promise<ResolveResult> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.rpc("resolve_welcome_video", { p_ar_number: arNumber }).single();
+  const { data, error } = await supabase.rpc("resolve_campaign_video", { p_ar_number: arNumber }).single();
 
   if (error) {
     return { ok: false, error: error.message.includes("not_found") ? "not_found" : "unknown" };

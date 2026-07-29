@@ -33,10 +33,10 @@ export async function setArNumber(arNumber: string) {
   return { arNumber: trimmed };
 }
 
-export async function setWelcomeVideo(mediaId: string) {
+export async function setCampaignVideo(mediaId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase.rpc("set_welcome_video", { p_media_id: mediaId });
+  const { error } = await supabase.rpc("set_campaign_video", { p_media_id: mediaId });
 
   if (error) {
     return { error: error.message };

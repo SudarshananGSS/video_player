@@ -14,7 +14,7 @@ export default async function DashboardPage() {
 
   const { data: advisorProfile } = await supabase
     .from("advisor_profiles")
-    .select("ar_number, welcome_video_media_id")
+    .select("ar_number, campaign_video_media_id")
     .eq("user_id", user!.id)
     .maybeSingle();
 
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       <h2 className="mb-3 text-sm font-semibold text-neutral-700">
         Media {withPreviewUrls.length > 0 && <span className="text-neutral-400">({withPreviewUrls.length})</span>}
       </h2>
-      <MediaList items={withPreviewUrls} welcomeVideoMediaId={advisorProfile?.welcome_video_media_id ?? null} />
+      <MediaList items={withPreviewUrls} campaignVideoMediaId={advisorProfile?.campaign_video_media_id ?? null} />
 
       <p className="mt-8 text-xs text-neutral-400">
         Sharing a video or image generates a public link at{" "}
