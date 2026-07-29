@@ -37,9 +37,9 @@ export function AdvisorSetup({ arNumber }: { arNumber: string | null }) {
 
   return (
     <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <p className="text-sm font-medium text-amber-900">Set your AR number to get a welcome video link</p>
+      <p className="text-sm font-medium text-amber-900">Enter your AR number</p>
       <p className="mt-1 text-xs text-amber-700">
-        This creates a permanent link (e.g. /welcome/1234567) that Zoho can reference in client welcome emails.
+        Your permanent welcome video link is generated automatically from it — nothing else to fill in.
       </p>
       <div className="mt-3 flex gap-2">
         <input
