@@ -48,7 +48,9 @@ export async function inviteAdvisor(email: string, arNumber: string) {
     return { error: "That AR number is already in use." };
   }
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(trimmedEmail);
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(trimmedEmail, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
+  });
 
   if (error) {
     return { error: error.message };
