@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureRasterImage } from "@/lib/rasterize-image";
 
 // Serves the actual image bytes for a share link, unlike /watch/[token]
 // (an HTML page). Needed for embedding a thumbnail as <img src> in email
@@ -33,13 +34,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
 
   const upstream = await fetch(signed.signedUrl);
 
-  if (!upstream.ok || !upstream.body) {
+  if (!upstream.ok) {
     return new NextResponse(null, { status: 404 });
   }
 
-  return new NextResponse(upstream.body, {
+  const { buffer, contentType } = await ensureRasterImage(
+    await upstream.arrayBuffer(),
+    upstream.headers.get("content-type"),
+  );
+
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": upstream.headers.get("content-type") ?? "image/jpeg",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",
     },
   });

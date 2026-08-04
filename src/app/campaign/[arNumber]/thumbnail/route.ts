@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureRasterImage } from "@/lib/rasterize-image";
 
 // Direct-image counterpart to /campaign/[arNumber] (an HTML page), so the
 // advisor's stable campaign thumbnail can be embedded as <img src> in an
@@ -32,13 +33,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ arN
 
   const upstream = await fetch(signed.signedUrl);
 
-  if (!upstream.ok || !upstream.body) {
+  if (!upstream.ok) {
     return new NextResponse(null, { status: 404 });
   }
 
-  return new NextResponse(upstream.body, {
+  const { buffer, contentType } = await ensureRasterImage(
+    await upstream.arrayBuffer(),
+    upstream.headers.get("content-type"),
+  );
+
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": upstream.headers.get("content-type") ?? "image/jpeg",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",
     },
   });

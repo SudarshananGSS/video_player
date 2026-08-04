@@ -276,7 +276,7 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
                   id="thumbnail-upload"
                   ref={thumbnailInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
                   disabled={busy}
                   onChange={(e) => setCustomThumbnail(e.target.files?.[0] ?? null)}
                   className="sr-only"
