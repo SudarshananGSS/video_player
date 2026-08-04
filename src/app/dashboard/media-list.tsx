@@ -47,7 +47,10 @@ export function MediaList({
     const result = await createShareLink(id, target);
     setBusyKey(null);
     if (result.token) {
-      const url = `${window.location.origin}/watch/${result.token}`;
+      // Thumbnail shares are for embedding as <img src> (e.g. in an email
+      // template) — those need the raw image bytes, not the /watch HTML page.
+      const path = target === "thumbnail" ? "img" : "watch";
+      const url = `${window.location.origin}/${path}/${result.token}`;
       setShareUrls((prev) => ({ ...prev, [key]: url }));
       return url;
     }
@@ -185,7 +188,7 @@ export function MediaList({
               />
               <ShareLinkRow
                 url={shareUrls[shareKey(item.id, "thumbnail")]}
-                label="Thumbnail link"
+                label="Thumbnail image URL (use as <img src> in emails)"
                 copied={copiedKey === shareKey(item.id, "thumbnail")}
                 onCopy={() =>
                   handleCopy(shareKey(item.id, "thumbnail"), shareUrls[shareKey(item.id, "thumbnail")])
