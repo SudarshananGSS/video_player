@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureRasterImage } from "@/lib/rasterize-image";
+import { addPlayButton } from "@/lib/add-play-button";
 
 // Direct-image counterpart to /campaign/[arNumber] (an HTML page), so the
 // advisor's stable campaign thumbnail can be embedded as <img src> in an
@@ -42,7 +43,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ arN
     upstream.headers.get("content-type"),
   );
 
-  return new NextResponse(new Uint8Array(buffer), {
+  // set_campaign_video only ever points at a video, so this thumbnail
+  // always represents something playable.
+  const finalBuffer = await addPlayButton(buffer);
+
+  return new NextResponse(new Uint8Array(finalBuffer), {
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",

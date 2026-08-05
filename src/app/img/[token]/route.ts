@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureRasterImage } from "@/lib/rasterize-image";
+import { addPlayButton } from "@/lib/add-play-button";
 
 // Serves the actual image bytes for a share link, unlike /watch/[token]
 // (an HTML page). Needed for embedding a thumbnail as <img src> in email
@@ -17,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     return new NextResponse(null, { status });
   }
 
-  const media = data as { type: "video" | "image"; storage_path: string };
+  const media = data as { type: "video" | "image"; storage_path: string; target: string };
 
   if (media.type !== "image") {
     return new NextResponse(null, { status: 400 });
@@ -43,7 +44,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     upstream.headers.get("content-type"),
   );
 
-  return new NextResponse(new Uint8Array(buffer), {
+  // Only a video's thumbnail gets the play button — a plain shared photo
+  // isn't playable and shouldn't look like it is.
+  const finalBuffer = media.target === "thumbnail" ? await addPlayButton(buffer) : buffer;
+
+  return new NextResponse(new Uint8Array(finalBuffer), {
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=86400",
