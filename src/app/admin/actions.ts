@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import sharp from "sharp";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -76,11 +77,14 @@ export async function inviteAdvisor(email: string, arNumber: string) {
   return { ok: true };
 }
 
-const THUMBNAIL_CONTENT_TYPES: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-};
+const ALLOWED_THUMBNAIL_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+// Fixed, single path per advisor — every upload normalizes to PNG here, so
+// there is always exactly one static thumbnail file, never one orphaned
+// per format (e.g. a stale .jpg left behind after replacing with a .png).
+function campaignThumbnailPath(advisorUserId: string) {
+  return `${advisorUserId}/campaign-thumbnail.png`;
+}
 
 export async function setCampaignThumbnail(advisorUserId: string, formData: FormData) {
   const requester = await requireAdmin();
@@ -93,17 +97,17 @@ export async function setCampaignThumbnail(advisorUserId: string, formData: Form
     return { error: "Choose an image file." };
   }
 
-  const ext = THUMBNAIL_CONTENT_TYPES[file.type];
-  if (!ext) {
+  if (!ALLOWED_THUMBNAIL_TYPES.has(file.type)) {
     return { error: "Only PNG, JPEG, or WebP images are supported." };
   }
 
   const admin = createAdminClient();
-  const path = `${advisorUserId}/campaign-thumbnail.${ext}`;
+  const path = campaignThumbnailPath(advisorUserId);
+  const pngBuffer = await sharp(Buffer.from(await file.arrayBuffer())).png().toBuffer();
 
   const { error: uploadError } = await admin.storage
     .from("media")
-    .upload(path, await file.arrayBuffer(), { contentType: file.type, upsert: true });
+    .upload(path, new Uint8Array(pngBuffer), { contentType: "image/png", upsert: true });
 
   if (uploadError) {
     return { error: uploadError.message };
@@ -129,14 +133,17 @@ export async function removeCampaignThumbnail(advisorUserId: string) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
+
+  const { error: updateError } = await admin
     .from("advisor_profiles")
     .update({ campaign_thumbnail_path: null })
     .eq("user_id", advisorUserId);
 
-  if (error) {
-    return { error: error.message };
+  if (updateError) {
+    return { error: updateError.message };
   }
+
+  await admin.storage.from("media").remove([campaignThumbnailPath(advisorUserId)]);
 
   revalidatePath("/admin");
   return { ok: true };
