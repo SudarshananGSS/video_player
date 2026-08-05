@@ -75,3 +75,69 @@ export async function inviteAdvisor(email: string, arNumber: string) {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+const THUMBNAIL_CONTENT_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+export async function setCampaignThumbnail(advisorUserId: string, formData: FormData) {
+  const requester = await requireAdmin();
+  if (!requester) {
+    return { error: "Not authorized." };
+  }
+
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) {
+    return { error: "Choose an image file." };
+  }
+
+  const ext = THUMBNAIL_CONTENT_TYPES[file.type];
+  if (!ext) {
+    return { error: "Only PNG, JPEG, or WebP images are supported." };
+  }
+
+  const admin = createAdminClient();
+  const path = `${advisorUserId}/campaign-thumbnail.${ext}`;
+
+  const { error: uploadError } = await admin.storage
+    .from("media")
+    .upload(path, await file.arrayBuffer(), { contentType: file.type, upsert: true });
+
+  if (uploadError) {
+    return { error: uploadError.message };
+  }
+
+  const { error: updateError } = await admin
+    .from("advisor_profiles")
+    .update({ campaign_thumbnail_path: path })
+    .eq("user_id", advisorUserId);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function removeCampaignThumbnail(advisorUserId: string) {
+  const requester = await requireAdmin();
+  if (!requester) {
+    return { error: "Not authorized." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("advisor_profiles")
+    .update({ campaign_thumbnail_path: null })
+    .eq("user_id", advisorUserId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/admin");
+  return { ok: true };
+}

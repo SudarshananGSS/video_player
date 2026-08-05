@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { InviteAdvisorForm } from "./invite-advisor-form";
 import { AdvisorMediaGrid } from "./advisor-media-grid";
+import { CampaignThumbnailForm } from "./campaign-thumbnail-form";
 
 export default async function AdminPage({
   searchParams,
@@ -36,7 +37,7 @@ export default async function AdminPage({
 
   const { data: advisorDetails } = await supabase
     .from("advisor_profiles")
-    .select("user_id, ar_number, campaign_video_media_id");
+    .select("user_id, ar_number, campaign_video_media_id, campaign_thumbnail_path");
 
   const detailsByUserId = new Map((advisorDetails ?? []).map((d) => [d.user_id, d]));
 
@@ -44,20 +45,23 @@ export default async function AdminPage({
     ...p,
     arNumber: detailsByUserId.get(p.user_id)?.ar_number ?? null,
     campaignVideoMediaId: detailsByUserId.get(p.user_id)?.campaign_video_media_id ?? null,
+    campaignThumbnailPath: detailsByUserId.get(p.user_id)?.campaign_thumbnail_path ?? null,
   }));
 
   const selectedAdvisor = advisors.find((a) => a.user_id === selectedAdvisorId) ?? null;
 
   let mediaItems: { id: string; type: string; title: string | null; status: string; previewUrl: string | null }[] = [];
+  let campaignThumbnailUrl: string | null = null;
 
   if (selectedAdvisor) {
+    const admin = createAdminClient();
+
     const { data: media } = await supabase
       .from("media")
       .select("id, type, title, storage_path, thumbnail_path, status")
       .eq("owner_id", selectedAdvisor.user_id)
       .order("created_at", { ascending: false });
 
-    const admin = createAdminClient();
     mediaItems = await Promise.all(
       (media ?? []).map(async (item) => {
         const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
@@ -66,6 +70,13 @@ export default async function AdminPage({
         return { ...item, previewUrl: data?.signedUrl ?? null };
       }),
     );
+
+    if (selectedAdvisor.campaignThumbnailPath) {
+      const { data } = await admin.storage
+        .from("media")
+        .createSignedUrl(selectedAdvisor.campaignThumbnailPath, 60 * 60);
+      campaignThumbnailUrl = data?.signedUrl ?? null;
+    }
   }
 
   return (
@@ -129,7 +140,15 @@ export default async function AdminPage({
                     <span className="ml-2 font-normal text-neutral-400">AR {selectedAdvisor.arNumber}</span>
                   )}
                 </h2>
-                <AdvisorMediaGrid items={mediaItems} campaignVideoMediaId={selectedAdvisor.campaignVideoMediaId} />
+                {selectedAdvisor.arNumber && (
+                  <CampaignThumbnailForm
+                    advisorUserId={selectedAdvisor.user_id}
+                    currentThumbnailUrl={campaignThumbnailUrl}
+                  />
+                )}
+                <div className="mt-4">
+                  <AdvisorMediaGrid items={mediaItems} campaignVideoMediaId={selectedAdvisor.campaignVideoMediaId} />
+                </div>
               </>
             ) : (
               <p className="py-10 text-center text-sm text-neutral-400">Select an advisor to view their media.</p>

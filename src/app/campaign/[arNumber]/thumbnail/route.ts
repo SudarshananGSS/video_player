@@ -17,16 +17,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ arN
     return new NextResponse(null, { status: 404 });
   }
 
-  const media = data as { thumbnail_path: string | null };
+  const media = data as { thumbnail_path: string | null; campaign_thumbnail_path: string | null };
 
-  if (!media.thumbnail_path) {
+  // An admin-set static thumbnail is served as-is — no play button baked
+  // in, since it's already exactly what the admin chose. Only the
+  // auto-derived fallback (a video frame or the advisor's own upload) gets
+  // the play button composited in at request time.
+  const isStaticOverride = Boolean(media.campaign_thumbnail_path);
+  const sourcePath = media.campaign_thumbnail_path ?? media.thumbnail_path;
+
+  if (!sourcePath) {
     return new NextResponse(null, { status: 404 });
   }
 
   const admin = createAdminClient();
-  const { data: signed, error: signError } = await admin.storage
-    .from("media")
-    .createSignedUrl(media.thumbnail_path, 60);
+  const { data: signed, error: signError } = await admin.storage.from("media").createSignedUrl(sourcePath, 60);
 
   if (signError || !signed) {
     return new NextResponse(null, { status: 404 });
@@ -43,9 +48,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ arN
     upstream.headers.get("content-type"),
   );
 
-  // set_campaign_video only ever points at a video, so this thumbnail
-  // always represents something playable.
-  const finalBuffer = await addPlayButton(buffer);
+  const finalBuffer = isStaticOverride ? buffer : await addPlayButton(buffer);
 
   return new NextResponse(new Uint8Array(finalBuffer), {
     headers: {
