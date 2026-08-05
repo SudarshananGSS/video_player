@@ -8,6 +8,16 @@ import { generateVideoThumbnail } from "@/lib/video-thumbnail";
 type ThumbnailMode = "auto" | "custom" | "none";
 type StatusKind = "info" | "success" | "error";
 
+// Supabase Storage rejects some characters/patterns Mac apps love to put in
+// default filenames (e.g. "Movie on 23-7-2026 at 12.07 pm.mov"). The stored
+// path never needs to be human-readable — the UUID already guarantees
+// uniqueness and the original filename is kept separately as `title` — so
+// just extract a safe extension and use a fixed base name.
+function safeExtension(filename: string, fallback: string): string {
+  const match = filename.match(/\.([a-zA-Z0-9]+)$/);
+  return match ? match[1].toLowerCase() : fallback;
+}
+
 const THUMBNAIL_OPTIONS: { mode: ThumbnailMode; label: string; hint: string }[] = [
   { mode: "auto", label: "Auto-generate", hint: "Grab a frame from the video" },
   { mode: "custom", label: "Upload my own", hint: "Use a custom image" },
@@ -58,8 +68,9 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
           ? customThumbnail
           : await generateVideoThumbnail(video);
 
-      const ext = thumbnailMode === "custom" && customThumbnail ? customThumbnail.name.split(".").pop() : "jpg";
-      const thumbPath = `${ownerId}/${mediaId}/thumbnail.${ext || "jpg"}`;
+      const ext =
+        thumbnailMode === "custom" && customThumbnail ? safeExtension(customThumbnail.name, "jpg") : "jpg";
+      const thumbPath = `${ownerId}/${mediaId}/thumbnail.${ext}`;
       const contentType = thumbnailMode === "custom" && customThumbnail ? customThumbnail.type : "image/jpeg";
 
       const { error } = await supabase.storage.from("media").upload(thumbPath, blob, { contentType });
@@ -76,7 +87,7 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
     setStatus({ text: `Uploading ${file.name}...`, kind: "info" });
 
     const mediaId = crypto.randomUUID();
-    const path = `${ownerId}/${mediaId}/${file.name}`;
+    const path = `${ownerId}/${mediaId}/original.${safeExtension(file.name, "jpg")}`;
 
     const { error: uploadError } = await supabase.storage.from("media").upload(path, file);
     if (uploadError) {
@@ -107,7 +118,7 @@ export function UploadForm({ ownerId }: { ownerId: string }) {
     setStatus({ text: "Uploading video...", kind: "info" });
 
     const mediaId = crypto.randomUUID();
-    const path = `${ownerId}/${mediaId}/${file.name}`;
+    const path = `${ownerId}/${mediaId}/original.${safeExtension(file.name, "mp4")}`;
 
     const { error: uploadError } = await supabase.storage.from("media").upload(path, file);
     if (uploadError) {
