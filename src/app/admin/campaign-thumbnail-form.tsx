@@ -4,13 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { removeCampaignThumbnail, setCampaignThumbnail } from "./actions";
 
-export function CampaignThumbnailForm({
-  advisorUserId,
-  currentThumbnailUrl,
-}: {
-  advisorUserId: string;
-  currentThumbnailUrl: string | null;
-}) {
+export function CampaignThumbnailForm({ currentThumbnailUrl }: { currentThumbnailUrl: string | null }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -21,7 +15,7 @@ export function CampaignThumbnailForm({
     setError(null);
     const formData = new FormData();
     formData.set("file", file);
-    const result = await setCampaignThumbnail(advisorUserId, formData);
+    const result = await setCampaignThumbnail(formData);
     setBusy(false);
     if (result.error) {
       setError(result.error);
@@ -34,7 +28,7 @@ export function CampaignThumbnailForm({
   async function handleRemove() {
     setBusy(true);
     setError(null);
-    const result = await removeCampaignThumbnail(advisorUserId);
+    const result = await removeCampaignThumbnail();
     setBusy(false);
     if (result.error) {
       setError(result.error);
@@ -44,12 +38,12 @@ export function CampaignThumbnailForm({
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Static campaign thumbnail</p>
+    <div className="mb-8 rounded-lg border border-neutral-200 bg-white p-4">
+      <p className="text-sm font-medium">Campaign thumbnail</p>
       <p className="mt-1 text-xs text-neutral-500">
         {currentThumbnailUrl
-          ? "Overrides the auto-generated thumbnail. Served exactly as uploaded, no play button added."
-          : "Not set — the campaign thumbnail is currently auto-generated from the video."}
+          ? "Applies to every advisor's campaign link. Served exactly as uploaded, no play button added."
+          : "Not set — each advisor's campaign thumbnail is currently auto-generated from their own video."}
       </p>
 
       <div className="mt-3 flex items-center gap-3">
@@ -57,19 +51,19 @@ export function CampaignThumbnailForm({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={currentThumbnailUrl}
-            alt="Static campaign thumbnail"
+            alt="Global campaign thumbnail"
             className="h-14 w-24 shrink-0 rounded-md border border-neutral-200 object-cover"
           />
         )}
         <div className="flex flex-wrap gap-2">
           <label
-            htmlFor={`thumbnail-upload-${advisorUserId}`}
+            htmlFor="global-campaign-thumbnail-upload"
             className="inline-block cursor-pointer rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-neutral-50"
           >
             {busy ? "Working..." : currentThumbnailUrl ? "Replace" : "Upload"}
           </label>
           <input
-            id={`thumbnail-upload-${advisorUserId}`}
+            id="global-campaign-thumbnail-upload"
             ref={inputRef}
             type="file"
             accept="image/png,image/jpeg,image/webp"

@@ -79,14 +79,12 @@ export async function inviteAdvisor(email: string, arNumber: string) {
 
 const ALLOWED_THUMBNAIL_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
-// Fixed, single path per advisor — every upload normalizes to PNG here, so
-// there is always exactly one static thumbnail file, never one orphaned
-// per format (e.g. a stale .jpg left behind after replacing with a .png).
-function campaignThumbnailPath(advisorUserId: string) {
-  return `${advisorUserId}/campaign-thumbnail.png`;
-}
+// Fixed, single path — every upload normalizes to PNG here, so there is
+// always exactly one global thumbnail file, never one orphaned per format
+// (e.g. a stale .jpg left behind after replacing with a .png).
+const GLOBAL_CAMPAIGN_THUMBNAIL_PATH = "_global/campaign-thumbnail.png";
 
-export async function setCampaignThumbnail(advisorUserId: string, formData: FormData) {
+export async function setCampaignThumbnail(formData: FormData) {
   const requester = await requireAdmin();
   if (!requester) {
     return { error: "Not authorized." };
@@ -102,21 +100,23 @@ export async function setCampaignThumbnail(advisorUserId: string, formData: Form
   }
 
   const admin = createAdminClient();
-  const path = campaignThumbnailPath(advisorUserId);
   const pngBuffer = await sharp(Buffer.from(await file.arrayBuffer())).png().toBuffer();
 
   const { error: uploadError } = await admin.storage
     .from("media")
-    .upload(path, new Uint8Array(pngBuffer), { contentType: "image/png", upsert: true });
+    .upload(GLOBAL_CAMPAIGN_THUMBNAIL_PATH, new Uint8Array(pngBuffer), {
+      contentType: "image/png",
+      upsert: true,
+    });
 
   if (uploadError) {
     return { error: uploadError.message };
   }
 
   const { error: updateError } = await admin
-    .from("advisor_profiles")
-    .update({ campaign_thumbnail_path: path })
-    .eq("user_id", advisorUserId);
+    .from("campaign_settings")
+    .update({ thumbnail_path: GLOBAL_CAMPAIGN_THUMBNAIL_PATH, updated_at: new Date().toISOString() })
+    .eq("id", true);
 
   if (updateError) {
     return { error: updateError.message };
@@ -126,7 +126,7 @@ export async function setCampaignThumbnail(advisorUserId: string, formData: Form
   return { ok: true };
 }
 
-export async function removeCampaignThumbnail(advisorUserId: string) {
+export async function removeCampaignThumbnail() {
   const requester = await requireAdmin();
   if (!requester) {
     return { error: "Not authorized." };
@@ -135,15 +135,15 @@ export async function removeCampaignThumbnail(advisorUserId: string) {
   const admin = createAdminClient();
 
   const { error: updateError } = await admin
-    .from("advisor_profiles")
-    .update({ campaign_thumbnail_path: null })
-    .eq("user_id", advisorUserId);
+    .from("campaign_settings")
+    .update({ thumbnail_path: null, updated_at: new Date().toISOString() })
+    .eq("id", true);
 
   if (updateError) {
     return { error: updateError.message };
   }
 
-  await admin.storage.from("media").remove([campaignThumbnailPath(advisorUserId)]);
+  await admin.storage.from("media").remove([GLOBAL_CAMPAIGN_THUMBNAIL_PATH]);
 
   revalidatePath("/admin");
   return { ok: true };

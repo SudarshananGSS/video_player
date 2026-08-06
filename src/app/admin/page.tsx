@@ -29,6 +29,8 @@ export default async function AdminPage({
     redirect("/dashboard");
   }
 
+  const admin = createAdminClient();
+
   const { data: advisorProfiles } = await supabase
     .from("profiles")
     .select("user_id, email")
@@ -37,7 +39,7 @@ export default async function AdminPage({
 
   const { data: advisorDetails } = await supabase
     .from("advisor_profiles")
-    .select("user_id, ar_number, campaign_video_media_id, campaign_thumbnail_path");
+    .select("user_id, ar_number, campaign_video_media_id");
 
   const detailsByUserId = new Map((advisorDetails ?? []).map((d) => [d.user_id, d]));
 
@@ -45,17 +47,13 @@ export default async function AdminPage({
     ...p,
     arNumber: detailsByUserId.get(p.user_id)?.ar_number ?? null,
     campaignVideoMediaId: detailsByUserId.get(p.user_id)?.campaign_video_media_id ?? null,
-    campaignThumbnailPath: detailsByUserId.get(p.user_id)?.campaign_thumbnail_path ?? null,
   }));
 
   const selectedAdvisor = advisors.find((a) => a.user_id === selectedAdvisorId) ?? null;
 
   let mediaItems: { id: string; type: string; title: string | null; status: string; previewUrl: string | null }[] = [];
-  let campaignThumbnailUrl: string | null = null;
 
   if (selectedAdvisor) {
-    const admin = createAdminClient();
-
     const { data: media } = await supabase
       .from("media")
       .select("id, type, title, storage_path, thumbnail_path, status")
@@ -70,13 +68,18 @@ export default async function AdminPage({
         return { ...item, previewUrl: data?.signedUrl ?? null };
       }),
     );
+  }
 
-    if (selectedAdvisor.campaignThumbnailPath) {
-      const { data } = await admin.storage
-        .from("media")
-        .createSignedUrl(selectedAdvisor.campaignThumbnailPath, 60 * 60);
-      campaignThumbnailUrl = data?.signedUrl ?? null;
-    }
+  const { data: campaignSettings } = await admin
+    .from("campaign_settings")
+    .select("thumbnail_path")
+    .eq("id", true)
+    .single();
+
+  let campaignThumbnailUrl: string | null = null;
+  if (campaignSettings?.thumbnail_path) {
+    const { data } = await admin.storage.from("media").createSignedUrl(campaignSettings.thumbnail_path, 60 * 60);
+    campaignThumbnailUrl = data?.signedUrl ?? null;
   }
 
   return (
@@ -102,6 +105,8 @@ export default async function AdminPage({
 
       <div className="mx-auto max-w-6xl px-4 py-8">
         <InviteAdvisorForm />
+
+        <CampaignThumbnailForm currentThumbnailUrl={campaignThumbnailUrl} />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[240px_1fr]">
           <div className="rounded-lg border border-neutral-200 bg-white p-3">
@@ -140,15 +145,7 @@ export default async function AdminPage({
                     <span className="ml-2 font-normal text-neutral-400">AR {selectedAdvisor.arNumber}</span>
                   )}
                 </h2>
-                {selectedAdvisor.arNumber && (
-                  <CampaignThumbnailForm
-                    advisorUserId={selectedAdvisor.user_id}
-                    currentThumbnailUrl={campaignThumbnailUrl}
-                  />
-                )}
-                <div className="mt-4">
-                  <AdvisorMediaGrid items={mediaItems} campaignVideoMediaId={selectedAdvisor.campaignVideoMediaId} />
-                </div>
+                <AdvisorMediaGrid items={mediaItems} campaignVideoMediaId={selectedAdvisor.campaignVideoMediaId} />
               </>
             ) : (
               <p className="py-10 text-center text-sm text-neutral-400">Select an advisor to view their media.</p>

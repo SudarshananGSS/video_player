@@ -11,26 +11,36 @@ export async function GET(_request: Request, { params }: { params: Promise<{ arN
   const { arNumber } = await params;
   const supabase = await createClient();
 
+  // Still requires a live campaign video for this AR number — a thumbnail
+  // with nothing for its click-through link to point at isn't meaningful,
+  // static override or not.
   const { data, error } = await supabase.rpc("resolve_campaign_video", { p_ar_number: arNumber }).single();
 
   if (error) {
     return new NextResponse(null, { status: 404 });
   }
 
-  const media = data as { thumbnail_path: string | null; campaign_thumbnail_path: string | null };
+  const media = data as { thumbnail_path: string | null };
+  const admin = createAdminClient();
 
-  // An admin-set static thumbnail is served as-is — no play button baked
-  // in, since it's already exactly what the admin chose. Only the
-  // auto-derived fallback (a video frame or the advisor's own upload) gets
-  // the play button composited in at request time.
-  const isStaticOverride = Boolean(media.campaign_thumbnail_path);
-  const sourcePath = media.campaign_thumbnail_path ?? media.thumbnail_path;
+  const { data: campaignSettings } = await admin
+    .from("campaign_settings")
+    .select("thumbnail_path")
+    .eq("id", true)
+    .single();
+
+  // An admin-set static thumbnail (applies to every advisor) is served
+  // as-is — no play button baked in, since it's already exactly what the
+  // admin chose. Only the auto-derived fallback (a video frame or the
+  // advisor's own upload) gets the play button composited in at request
+  // time.
+  const isStaticOverride = Boolean(campaignSettings?.thumbnail_path);
+  const sourcePath = campaignSettings?.thumbnail_path ?? media.thumbnail_path;
 
   if (!sourcePath) {
     return new NextResponse(null, { status: 404 });
   }
 
-  const admin = createAdminClient();
   const { data: signed, error: signError } = await admin.storage.from("media").createSignedUrl(sourcePath, 60);
 
   if (signError || !signed) {
