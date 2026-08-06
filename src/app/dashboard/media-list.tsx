@@ -2,10 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createShareLink, deleteMedia } from "./actions";
+import { deleteMedia } from "./actions";
 import { setCampaignVideo } from "./advisor-actions";
-
-type Target = "original" | "thumbnail";
 
 type Item = {
   id: string;
@@ -16,11 +14,8 @@ type Item = {
   status: string;
   created_at: string;
   previewUrl: string | null;
+  videoUrl: string | null;
 };
-
-function shareKey(id: string, target: Target) {
-  return `${id}:${target}`;
-}
 
 export function MediaList({
   items,
@@ -30,9 +25,8 @@ export function MediaList({
   campaignVideoMediaId: string | null;
 }) {
   const router = useRouter();
-  const [shareUrls, setShareUrls] = useState<Record<string, string>>({});
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function handleSetCampaignVideo(id: string) {
     setBusyKey(`campaign:${id}`);
@@ -41,43 +35,15 @@ export function MediaList({
     router.refresh();
   }
 
-  async function handleShare(id: string) {
-    const key = shareKey(id, "original");
-    setBusyKey(key);
-    const result = await createShareLink(id, "original");
-    setBusyKey(null);
-    if (result.token) {
-      const url = `${window.location.origin}/watch/${result.token}`;
-      setShareUrls((prev) => ({ ...prev, [key]: url }));
-      return url;
-    }
-    return null;
+  function handleOpenVideo(item: Item) {
+    if (!item.videoUrl) return;
+    window.open(item.videoUrl, "_blank", "noopener,noreferrer");
   }
 
-  async function handleOpenVideo(item: Item) {
-    if (item.status !== "ready") return;
-    const key = shareKey(item.id, "original");
-    const existing = shareUrls[key];
-    if (existing) {
-      window.open(existing, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    // Open the tab synchronously (within the click's user-gesture context) and
-    // redirect it once the link is ready — window.open after an await gets
-    // blocked by popup blockers since the gesture context is gone by then.
-    const newTab = window.open("", "_blank");
-    const url = await handleShare(item.id);
-    if (newTab) {
-      if (url) newTab.location.href = url;
-      else newTab.close();
-    }
-  }
-
-  async function handleCopy(key: string, url: string) {
+  async function handleCopy(id: string, url: string) {
     await navigator.clipboard.writeText(url);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1500);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1500);
   }
 
   async function handleDelete(item: Item) {
@@ -104,8 +70,8 @@ export function MediaList({
             <button
               type="button"
               onClick={() => handleOpenVideo(item)}
-              disabled={notReady}
-              className={`group relative block aspect-video w-full bg-neutral-100 ${notReady ? "cursor-not-allowed" : "cursor-pointer"}`}
+              disabled={notReady || !item.videoUrl}
+              className={`group relative block aspect-video w-full bg-neutral-100 ${notReady || !item.videoUrl ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
               {item.previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -118,7 +84,7 @@ export function MediaList({
               {item.type === "video" && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-transform group-hover:scale-105">
-                    {busyKey === shareKey(item.id, "original") ? <Spinner /> : <PlayIcon />}
+                    <PlayIcon />
                   </span>
                 </div>
               )}
@@ -145,12 +111,6 @@ export function MediaList({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <ShareButton
-                  label="Share video"
-                  disabled={notReady}
-                  busy={busyKey === shareKey(item.id, "original")}
-                  onClick={() => handleShare(item.id)}
-                />
                 {item.type === "video" && item.id !== campaignVideoMediaId && (
                   <ShareButton
                     label="Set as campaign video"
@@ -169,12 +129,25 @@ export function MediaList({
                 </button>
               </div>
 
-              <ShareLinkRow
-                url={shareUrls[shareKey(item.id, "original")]}
-                label="Video link"
-                copied={copiedKey === shareKey(item.id, "original")}
-                onCopy={() => handleCopy(shareKey(item.id, "original"), shareUrls[shareKey(item.id, "original")])}
-              />
+              {item.videoUrl && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-medium text-neutral-500">Video link</p>
+                  <div className="flex gap-1">
+                    <input
+                      readOnly
+                      value={item.videoUrl}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full min-w-0 rounded border border-neutral-200 px-2 py-1 text-xs text-neutral-600"
+                    />
+                    <button
+                      onClick={() => handleCopy(item.id, item.videoUrl!)}
+                      className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs font-medium transition-colors hover:bg-neutral-50"
+                    >
+                      {copiedId === item.id ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </li>
         );
@@ -185,7 +158,7 @@ export function MediaList({
 
 function ShareButton({
   label,
-  busyLabel = "Sharing...",
+  busyLabel = "Working...",
   disabled,
   busy,
   onClick,
@@ -207,53 +180,10 @@ function ShareButton({
   );
 }
 
-function Spinner() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="animate-spin">
-      <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="2" opacity="0.3" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function PlayIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="white" className="translate-x-[1px]">
       <path d="M8 5v14l11-7z" />
     </svg>
-  );
-}
-
-function ShareLinkRow({
-  url,
-  label,
-  copied,
-  onCopy,
-}: {
-  url: string | undefined;
-  label: string;
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  if (!url) return null;
-
-  return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-medium text-neutral-500">{label}</p>
-      <div className="flex gap-1">
-        <input
-          readOnly
-          value={url}
-          onFocus={(e) => e.target.select()}
-          className="w-full min-w-0 rounded border border-neutral-200 px-2 py-1 text-xs text-neutral-600"
-        />
-        <button
-          onClick={onCopy}
-          className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs font-medium transition-colors hover:bg-neutral-50"
-        >
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-    </div>
   );
 }

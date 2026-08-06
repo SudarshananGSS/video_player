@@ -36,9 +36,24 @@ export default async function DashboardPage() {
 
   const signedUrlByPath = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl]));
 
+  const readyIds = (media ?? []).filter((item) => item.status === "ready").map((item) => item.id);
+
+  const { data: shareLinks } = readyIds.length
+    ? await supabase.rpc("get_or_create_share_links", { p_media_ids: readyIds, p_target: "original" })
+    : { data: [] as { media_id: string; token: string }[] | null };
+
+  const tokenByMediaId = new Map(
+    ((shareLinks ?? []) as { media_id: string; token: string }[]).map((s) => [s.media_id, s.token]),
+  );
+
   const withPreviewUrls = (media ?? []).map((item) => {
     const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
-    return { ...item, previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null };
+    const token = tokenByMediaId.get(item.id);
+    return {
+      ...item,
+      previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null,
+      videoUrl: token ? `${process.env.NEXT_PUBLIC_APP_URL}/watch/${token}` : null,
+    };
   });
 
   return (
