@@ -6,6 +6,7 @@ import { logout } from "@/app/login/actions";
 import { InviteAdvisorForm } from "./invite-advisor-form";
 import { AdvisorMediaGrid } from "./advisor-media-grid";
 import { CampaignThumbnailForm } from "./campaign-thumbnail-form";
+import { CampaignLinks } from "./campaign-links";
 
 export default async function AdminPage({
   searchParams,
@@ -145,6 +146,7 @@ export default async function AdminPage({
                     <span className="ml-2 font-normal text-neutral-400">AR {selectedAdvisor.arNumber}</span>
                   )}
                 </h2>
+                {selectedAdvisor.arNumber && <CampaignLinks arNumber={selectedAdvisor.arNumber} />}
                 <AdvisorMediaGrid items={mediaItems} campaignVideoMediaId={selectedAdvisor.campaignVideoMediaId} />
               </>
             ) : (

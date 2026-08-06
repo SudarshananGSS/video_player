@@ -41,16 +41,13 @@ export function MediaList({
     router.refresh();
   }
 
-  async function handleShare(id: string, target: Target) {
-    const key = shareKey(id, target);
+  async function handleShare(id: string) {
+    const key = shareKey(id, "original");
     setBusyKey(key);
-    const result = await createShareLink(id, target);
+    const result = await createShareLink(id, "original");
     setBusyKey(null);
     if (result.token) {
-      // Thumbnail shares are for embedding as <img src> (e.g. in an email
-      // template) — those need the raw image bytes, not the /watch HTML page.
-      const path = target === "thumbnail" ? "img" : "watch";
-      const url = `${window.location.origin}/${path}/${result.token}`;
+      const url = `${window.location.origin}/watch/${result.token}`;
       setShareUrls((prev) => ({ ...prev, [key]: url }));
       return url;
     }
@@ -70,7 +67,7 @@ export function MediaList({
     // redirect it once the link is ready — window.open after an await gets
     // blocked by popup blockers since the gesture context is gone by then.
     const newTab = window.open("", "_blank");
-    const url = await handleShare(item.id, "original");
+    const url = await handleShare(item.id);
     if (newTab) {
       if (url) newTab.location.href = url;
       else newTab.close();
@@ -152,16 +149,8 @@ export function MediaList({
                   label="Share video"
                   disabled={notReady}
                   busy={busyKey === shareKey(item.id, "original")}
-                  onClick={() => handleShare(item.id, "original")}
+                  onClick={() => handleShare(item.id)}
                 />
-                {item.type === "video" && item.thumbnail_path && (
-                  <ShareButton
-                    label="Share thumbnail"
-                    disabled={notReady}
-                    busy={busyKey === shareKey(item.id, "thumbnail")}
-                    onClick={() => handleShare(item.id, "thumbnail")}
-                  />
-                )}
                 {item.type === "video" && item.id !== campaignVideoMediaId && (
                   <ShareButton
                     label="Set as campaign video"
@@ -185,14 +174,6 @@ export function MediaList({
                 label="Video link"
                 copied={copiedKey === shareKey(item.id, "original")}
                 onCopy={() => handleCopy(shareKey(item.id, "original"), shareUrls[shareKey(item.id, "original")])}
-              />
-              <ShareLinkRow
-                url={shareUrls[shareKey(item.id, "thumbnail")]}
-                label="Thumbnail image URL (use as <img src> in emails)"
-                copied={copiedKey === shareKey(item.id, "thumbnail")}
-                onCopy={() =>
-                  handleCopy(shareKey(item.id, "thumbnail"), shareUrls[shareKey(item.id, "thumbnail")])
-                }
               />
             </div>
           </li>
