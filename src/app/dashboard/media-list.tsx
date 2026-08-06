@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteMedia } from "./actions";
 import { setCampaignVideo } from "./advisor-actions";
+import { WatchClient } from "@/app/watch/[token]/watch-client";
 
 type Item = {
   id: string;
@@ -15,6 +16,7 @@ type Item = {
   created_at: string;
   previewUrl: string | null;
   videoUrl: string | null;
+  shareToken: string | null;
 };
 
 export function MediaList({
@@ -27,6 +29,7 @@ export function MediaList({
   const router = useRouter();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [playingToken, setPlayingToken] = useState<string | null>(null);
 
   async function handleSetCampaignVideo(id: string) {
     setBusyKey(`campaign:${id}`);
@@ -36,8 +39,8 @@ export function MediaList({
   }
 
   function handleOpenVideo(item: Item) {
-    if (!item.videoUrl) return;
-    window.open(item.videoUrl, "_blank", "noopener,noreferrer");
+    if (!item.shareToken) return;
+    setPlayingToken(item.shareToken);
   }
 
   async function handleCopy(id: string, url: string) {
@@ -62,7 +65,8 @@ export function MediaList({
   }
 
   return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <>
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => {
         const notReady = item.status !== "ready";
         return (
@@ -70,8 +74,8 @@ export function MediaList({
             <button
               type="button"
               onClick={() => handleOpenVideo(item)}
-              disabled={notReady || !item.videoUrl}
-              className={`group relative block aspect-video w-full bg-neutral-100 ${notReady || !item.videoUrl ? "cursor-not-allowed" : "cursor-pointer"}`}
+              disabled={notReady || !item.shareToken}
+              className={`group relative block aspect-video w-full bg-neutral-100 ${notReady || !item.shareToken ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
               {item.previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -152,7 +156,25 @@ export function MediaList({
           </li>
         );
       })}
-    </ul>
+      </ul>
+      {playingToken && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPlayingToken(null)}
+        >
+          <button
+            onClick={() => setPlayingToken(null)}
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <CloseIcon />
+          </button>
+          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] max-w-4xl items-center justify-center">
+            <WatchClient token={playingToken} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -184,6 +206,14 @@ function PlayIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="white" className="translate-x-[1px]">
       <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
     </svg>
   );
 }

@@ -53,6 +53,7 @@ export default async function DashboardPage() {
       ...item,
       previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null,
       videoUrl: token ? `${process.env.NEXT_PUBLIC_APP_URL}/watch/${token}` : null,
+      shareToken: token ?? null,
     };
   });
 
