@@ -1,4 +1,5 @@
 import { login } from "./actions";
+import { LoginButton } from "./login-button";
 
 export default async function LoginPage({
   searchParams,
@@ -50,12 +51,7 @@ export default async function LoginPage({
               className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-sm"
             />
           </div>
-          <button
-            formAction={login}
-            className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white"
-          >
-            Log in
-          </button>
+          <LoginButton action={login} />
         </form>
 
         <p className="text-center text-xs text-neutral-400">
