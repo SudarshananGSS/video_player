@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -60,22 +61,48 @@ export default async function AdminPage({
     .map((item) => item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null))
     .filter((path): path is string => path !== null);
 
-  const originalPaths = (media ?? []).map((item) => item.storage_path);
-
-  const allPaths = [...new Set([...previewPaths, ...originalPaths])];
-
-  const { data: signedUrls } = allPaths.length
-    ? await admin.storage.from("media").createSignedUrls(allPaths, 60 * 60)
+  const { data: signedUrls } = previewPaths.length
+    ? await admin.storage.from("media").createSignedUrls(previewPaths, 60 * 60)
     : { data: [] as { path: string | null; signedUrl: string }[] | null };
 
   const signedUrlByPath = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl]));
 
+  // Playback goes through /watch/[token] (like the advisor's own dashboard)
+  // rather than a raw signed storage URL — the raw URL's content-type makes
+  // browsers download the file instead of playing it inline.
+  const readyIds = (media ?? []).filter((item) => item.status === "ready").map((item) => item.id);
+
+  const tokenByMediaId = new Map<string, string>();
+  if (readyIds.length && selectedAdvisorId) {
+    const { data: existingLinks } = await admin
+      .from("share_links")
+      .select("media_id, token")
+      .eq("target", "original")
+      .eq("created_by", selectedAdvisorId)
+      .in("media_id", readyIds);
+
+    (existingLinks ?? []).forEach((link) => tokenByMediaId.set(link.media_id, link.token));
+
+    const missingIds = readyIds.filter((id) => !tokenByMediaId.has(id));
+    if (missingIds.length) {
+      const newRows = missingIds.map((id) => ({
+        media_id: id,
+        created_by: selectedAdvisorId,
+        token: crypto.randomBytes(8).toString("hex"),
+        target: "original",
+      }));
+      const { data: inserted } = await admin.from("share_links").insert(newRows).select("media_id, token");
+      (inserted ?? []).forEach((link) => tokenByMediaId.set(link.media_id, link.token));
+    }
+  }
+
   const mediaItems = (media ?? []).map((item) => {
     const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
+    const token = tokenByMediaId.get(item.id);
     return {
       ...item,
       previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null,
-      videoUrl: item.status === "ready" ? (signedUrlByPath.get(item.storage_path) ?? null) : null,
+      videoUrl: token ? `${process.env.NEXT_PUBLIC_APP_URL}/watch/${token}` : null,
     };
   });
 
