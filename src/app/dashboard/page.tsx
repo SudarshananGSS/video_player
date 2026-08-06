@@ -12,32 +12,34 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: ownProfile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  const [{ data: ownProfile }, { data: advisorProfile }, { data: media }] = await Promise.all([
+    supabase.from("profiles").select("is_admin").eq("user_id", user!.id).maybeSingle(),
+    supabase
+      .from("advisor_profiles")
+      .select("ar_number, campaign_video_media_id")
+      .eq("user_id", user!.id)
+      .maybeSingle(),
+    supabase
+      .from("media")
+      .select("id, type, title, storage_path, thumbnail_path, status, created_at")
+      .eq("owner_id", user!.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const { data: advisorProfile } = await supabase
-    .from("advisor_profiles")
-    .select("ar_number, campaign_video_media_id")
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  const previewPaths = (media ?? [])
+    .map((item) => item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null))
+    .filter((path): path is string => path !== null);
 
-  const { data: media } = await supabase
-    .from("media")
-    .select("id, type, title, storage_path, thumbnail_path, status, created_at")
-    .eq("owner_id", user!.id)
-    .order("created_at", { ascending: false });
+  const { data: signedUrls } = previewPaths.length
+    ? await supabase.storage.from("media").createSignedUrls(previewPaths, 60 * 60)
+    : { data: [] as { path: string | null; signedUrl: string }[] | null };
 
-  const withPreviewUrls = await Promise.all(
-    (media ?? []).map(async (item) => {
-      const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
-      if (!previewPath) return { ...item, previewUrl: null as string | null };
-      const { data } = await supabase.storage.from("media").createSignedUrl(previewPath, 60 * 60);
-      return { ...item, previewUrl: data?.signedUrl ?? null };
-    }),
-  );
+  const signedUrlByPath = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl]));
+
+  const withPreviewUrls = (media ?? []).map((item) => {
+    const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
+    return { ...item, previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null };
+  });
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">

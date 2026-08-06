@@ -32,15 +32,19 @@ export default async function AdminPage({
 
   const admin = createAdminClient();
 
-  const { data: advisorProfiles } = await supabase
-    .from("profiles")
-    .select("user_id, email")
-    .eq("is_admin", false)
-    .order("email");
-
-  const { data: advisorDetails } = await supabase
-    .from("advisor_profiles")
-    .select("user_id, ar_number, campaign_video_media_id");
+  const [{ data: advisorProfiles }, { data: advisorDetails }, { data: media }, { data: campaignSettings }] =
+    await Promise.all([
+      supabase.from("profiles").select("user_id, email").eq("is_admin", false).order("email"),
+      supabase.from("advisor_profiles").select("user_id, ar_number, campaign_video_media_id"),
+      selectedAdvisorId
+        ? supabase
+            .from("media")
+            .select("id, type, title, storage_path, thumbnail_path, status")
+            .eq("owner_id", selectedAdvisorId)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: null }),
+      admin.from("campaign_settings").select("thumbnail_path").eq("id", true).single(),
+    ]);
 
   const detailsByUserId = new Map((advisorDetails ?? []).map((d) => [d.user_id, d]));
 
@@ -52,30 +56,20 @@ export default async function AdminPage({
 
   const selectedAdvisor = advisors.find((a) => a.user_id === selectedAdvisorId) ?? null;
 
-  let mediaItems: { id: string; type: string; title: string | null; status: string; previewUrl: string | null }[] = [];
+  const previewPaths = (media ?? [])
+    .map((item) => item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null))
+    .filter((path): path is string => path !== null);
 
-  if (selectedAdvisor) {
-    const { data: media } = await supabase
-      .from("media")
-      .select("id, type, title, storage_path, thumbnail_path, status")
-      .eq("owner_id", selectedAdvisor.user_id)
-      .order("created_at", { ascending: false });
+  const { data: signedUrls } = previewPaths.length
+    ? await admin.storage.from("media").createSignedUrls(previewPaths, 60 * 60)
+    : { data: [] as { path: string | null; signedUrl: string }[] | null };
 
-    mediaItems = await Promise.all(
-      (media ?? []).map(async (item) => {
-        const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
-        if (!previewPath) return { ...item, previewUrl: null };
-        const { data } = await admin.storage.from("media").createSignedUrl(previewPath, 60 * 60);
-        return { ...item, previewUrl: data?.signedUrl ?? null };
-      }),
-    );
-  }
+  const signedUrlByPath = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl]));
 
-  const { data: campaignSettings } = await admin
-    .from("campaign_settings")
-    .select("thumbnail_path")
-    .eq("id", true)
-    .single();
+  const mediaItems = (media ?? []).map((item) => {
+    const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
+    return { ...item, previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null };
+  });
 
   let campaignThumbnailUrl: string | null = null;
   if (campaignSettings?.thumbnail_path) {

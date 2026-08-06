@@ -51,7 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   return new NextResponse(new Uint8Array(finalBuffer), {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
     },
   });
 }
