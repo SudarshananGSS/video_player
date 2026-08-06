@@ -60,15 +60,23 @@ export default async function AdminPage({
     .map((item) => item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null))
     .filter((path): path is string => path !== null);
 
-  const { data: signedUrls } = previewPaths.length
-    ? await admin.storage.from("media").createSignedUrls(previewPaths, 60 * 60)
+  const originalPaths = (media ?? []).map((item) => item.storage_path);
+
+  const allPaths = [...new Set([...previewPaths, ...originalPaths])];
+
+  const { data: signedUrls } = allPaths.length
+    ? await admin.storage.from("media").createSignedUrls(allPaths, 60 * 60)
     : { data: [] as { path: string | null; signedUrl: string }[] | null };
 
   const signedUrlByPath = new Map((signedUrls ?? []).map((s) => [s.path, s.signedUrl]));
 
   const mediaItems = (media ?? []).map((item) => {
     const previewPath = item.thumbnail_path ?? (item.type === "image" ? item.storage_path : null);
-    return { ...item, previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null };
+    return {
+      ...item,
+      previewUrl: previewPath ? (signedUrlByPath.get(previewPath) ?? null) : null,
+      videoUrl: item.status === "ready" ? (signedUrlByPath.get(item.storage_path) ?? null) : null,
+    };
   });
 
   let campaignThumbnailUrl: string | null = null;
