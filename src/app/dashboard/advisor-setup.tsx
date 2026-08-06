@@ -9,7 +9,7 @@ export function AdvisorSetup({ arNumber }: { arNumber: string | null }) {
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Your campaign video link</p>
         <p className="mt-1 text-sm text-neutral-600">
           AR {arNumber} · This link never changes, even if you replace your campaign video, so it can be reused
-          across welcome emails and other campaigns. Give it to your Zoho admin once to set up email templates.
+          across welcome emails and other campaigns.
         </p>
 
         <p className="mt-3 text-xs font-medium text-neutral-500">Click-through link</p>
